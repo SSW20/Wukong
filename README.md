@@ -22,37 +22,77 @@
 
 ```
 Source/Wukong/
-├── Character/
-│   ├── WK_PlayerCharacter          플레이어 캐릭터
-│   ├── WK_EnemyCharacter           에너미 캐릭터
-│   ├── WK_PlayerCloneCharacter     분신 (소환 클론)
-│   └── Component/
-│       ├── Combat/
-│       │   ├── WK_PlayerCombatComponent      무기 콜리전 관리
-│       │   ├── WK_EnemyCombatComponent       에너미 사지별 콜리전
-│       │   ├── WK_PlayerComboComponent       콤보 & 차지 게이지
-│       │   └── TargetLock/
-│       │       └── WK_PlayerTargetLockComponent  락온 시스템
-│       └── UI/
-│           ├── WK_PlayerUIComponent          플레이어 HUD 연결
-│           └── WK_EnemyUIComponent           에너미 UI 연결
-├── AbilitySystem/
-│   ├── WK_AbilitySystemComponent   커스텀 ASC (입력 라우팅)
-│   ├── WK_AttributeSet             캐릭터 수치 & 후처리
-│   ├── Ability/                    어빌리티 클래스들
-│   ├── GEExecCalc/                 데미지 계산 (ExecutionCalculation)
-│   └── BTService/                  AI 비헤이비어 트리 태스크
-├── Controller/
-│   ├── WK_PlayerController
-│   └── WK_EnemyController          AI 퍼셉션 & 팀 시스템
-├── Actor/
-│   ├── WK_ProjectileBase           투사체 (호밍 / 지면 스냅)
-│   └── WK_AreaActorBase            확장형 링 AOE
-├── Data/
-│   ├── WK_PlayerStartUpAbilities   플레이어 어빌리티 초기 등록
-│   ├── WK_EnemyStartUpAbilities    에너미 어빌리티 초기 등록
-│   └── WK_EnemyAttackPool          에너미별 공격 풀 데이터 에셋
-└── WK_GameplayTags                 게임 전체 태그 100+ 선언
+├── Private/
+│   ├── AbilitySystem/
+│   │   ├── Ability/
+│   │   │   ├── WK_GameplayAbility              어빌리티 베이스 (입력 릴리즈 처리)
+│   │   │   ├── WK_PlayerGameplayAbility         플레이어 어빌리티 베이스 (컴포넌트 접근, 이펙트 스펙 빌더)
+│   │   │   ├── WK_EnemyGameplayAbility          에너미 어빌리티 베이스
+│   │   │   ├── WK_PlayerSummonMonkeyAbility     분신 소환 어빌리티
+│   │   │   ├── WK_EnemySummonAbility            에너미 소환 어빌리티
+│   │   │   └── WK_PlayerAbilityTargetLock       타겟 락온 어빌리티
+│   │   ├── AbilityTask/
+│   │   │   └── AbilityTask_ExecuteOnTick        틱 기반 커스텀 어빌리티 태스크
+│   │   ├── BTService/
+│   │   │   ├── BTService_SelectNextAttack       공간 분석 기반 공격 선택 태스크
+│   │   │   ├── BTService_OrientToTarget         타겟 방향 보간 회전 서비스
+│   │   │   └── BTTask_RotateFaceToTarget        공격 전 정면 정렬 태스크
+│   │   ├── GEExecCalc/
+│   │   │   └── GEExecCalc_Damage               데미지 최종 계산 (콤보·차지·다단히트 반영)
+│   │   ├── WK_AbilitySystemComponent            커스텀 ASC (콤보 입력 사전 분기)
+│   │   └── WK_AttributeSet                     13개 속성 & 후처리 (게이지·스태미나·사망)
+│   ├── Actions/
+│   │   ├── WK_AsyncTaskCooldownChanged          비동기 쿨다운 트래킹 (멀티 태그 리스닝)
+│   │   └── WK_CoolDownTimer                    커스텀 레이턴트 쿨다운 타이머
+│   ├── Actor/
+│   │   ├── WK_ProjectileBase                   투사체 (직선 / 호밍 / 지면스냅 / 호밍+지면스냅)
+│   │   └── WK_AreaActorBase                    확장형 링 AOE (반지름 증가·도넛 판정)
+│   ├── Animation/AnimNotify/
+│   │   ├── WK_ANS_InputWindow                  콤보 입력 윈도우 열기/닫기
+│   │   ├── WK_ANS_TagManager                   애니메이션 구간별 GAS 태그 추가·제거 / 이동속도 제어
+│   │   └── ANS_UpdateActorRotation             애니메이션 중 블랙보드 타겟 방향 보간 회전
+│   ├── Character/
+│   │   ├── WK_BaseCharacter                    공통 베이스 (ASC, AttributeSet, MotionWarping)
+│   │   ├── WK_PlayerCharacter                  플레이어 (궤도 이동 블렌딩, Enhanced Input 바인딩)
+│   │   ├── WK_EnemyCharacter                   에너미 (사지별 콜리전 4개, 오디오)
+│   │   ├── WK_PlayerCloneCharacter             분신 클론 (AI 제어, 독립 ASC)
+│   │   └── Component/
+│   │       ├── WK_PawnComponentBase            컴포넌트 베이스
+│   │       ├── Combat/
+│   │       │   ├── WK_PawnCombatComponent      히트 중복 방지, 콜리전 토글 베이스
+│   │       │   ├── WK_PlayerCombatComponent    소켓 기반 동적 캡슐 트랜스폼
+│   │       │   ├── WK_EnemyCombatComponent     사지별(4개) 독립 캡슐 관리
+│   │       │   ├── Combo/
+│   │       │   │   └── WK_PlayerComboComponent 콤보 인덱스·차지 게이지·닷지 방향 관리
+│   │       │   └── TargetLock/
+│   │       │       └── WK_PlayerTargetLockComponent  락온 (구체 탐색·카메라·몸통·위젯)
+│   │       └── UI/
+│   │           ├── WK_PawnUIComponent          체력 델리게이트 베이스
+│   │           ├── WK_PlayerUIComponent        마나·스태미나·게이지·물약 델리게이트
+│   │           └── WK_EnemyUIComponent         에너미 체력바 위젯 관리
+│   ├── Controller/
+│   │   ├── WK_PlayerController                 팀 ID 0 설정
+│   │   ├── WK_EnemyController                  AI 퍼셉션 (시야 5000u, 360°) & 팀 적대 판정
+│   │   └── WK_PlayerCloneController            클론 AI (CrowdFollowing, 장애물 회피)
+│   ├── Data/
+│   │   ├── WK_StartUpAbilities                 어빌리티·이펙트 초기 부여 베이스
+│   │   ├── WK_PlayerStartUpAbilities           플레이어 어빌리티 + 입력 태그 등록
+│   │   ├── WK_EnemyStartUpAbilities            에너미 어빌리티 등록
+│   │   ├── WK_EnemyAttackPool                  에너미별 공격 풀 데이터 에셋
+│   │   └── WK_InputDataConfig                  Enhanced Input 액션·매핑 컨텍스트 설정
+│   ├── Input/
+│   │   └── WK_EnhancedInputComponent           어빌리티 입력 바인딩 래퍼
+│   ├── Interface/
+│   │   ├── WK_PawnCombatInterface              전투 컴포넌트 접근 인터페이스
+│   │   └── WK_PawnUIInterface                  UI 컴포넌트 접근 인터페이스
+│   ├── Widgets/
+│   │   └── WK_WidgetBase                       UMG 위젯 베이스
+│   ├── WK_BlueprintFunctionLibrary             태그 관리·방향 계산·거리 판정·이펙트 적용 유틸
+│   └── WK_GameplayTags                         게임 전체 태그 100+ 정의
+└── Public/
+    └── Types/
+        ├── WK_EnumTypes                        EActorDirection 등 공용 열거형
+        └── WK_StructTypes                      FActorDodgeAbility, FWeaponCollisionCachedData 등
 ```
 
 ---
