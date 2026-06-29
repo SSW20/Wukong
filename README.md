@@ -310,12 +310,55 @@ const bool InLeft  = (CrossZ < -0.02f);          // 외적 Z 부호 → 좌/우 
 
 ---
 
-## 트러블슈팅 / 기술적 결정
+## 💡 트러블슈팅
 
-| 문제 | 해결 |
-|------|------|
-| 빠른 스윙 애니메이션에서 히트박스 미스 | 소켓 2개 기반 동적 캡슐 트랜스폼 계산 |
-| 락온 중 적에 붙으면 이동 막힘 | 거리 비율 Alpha로 직진↔공전 블렌딩 |
-| 콤보 입력이 GAS 어빌리티 타이밍과 충돌 | ASC에서 콤보 입력을 사전 분기해 ComboComponent로 라우팅 |
-| AttributeSet 후처리 시 반복 인터페이스 캐스팅 | TWeakInterfacePtr 최초 1회 캐싱 |
-| 에너미 퍼셉션 노이즈로 타겟 갱신 반복 | 타겟이 없을 때만 설정, 해제는 BT에서 담당 |
+---
+
+### 1. 락온 상태에서 앞으로 이동 시 캐릭터가 적을 뚫고 들어가는 문제
+
+게임을 플레이하다가 락온 상태에서 보스 바로 앞에 붙어 W키를 계속 누르면  
+직선으로 뚫고 들어가지 않고 옆으로 미끄러지듯 도는 것을 보고 직접 구현해봤습니다.
+
+거리가 `AcceptRadius` 이하로 좁혀지면 직진 방향을 공전 방향으로 서서히 전환하고,  
+거리 비율을 Alpha로 변환해 두 방향을 Lerp로 블렌딩하면 그 느낌이 나왔습니다.
+
+```cpp
+float Alpha = FMath::Clamp((OrbitRadius - Distance) / 150.0f, 0.0f, 1.0f);
+ForwardDirection = FMath::Lerp(ForwardDirection, OrbitDir, Alpha).GetSafeNormal();
+```
+
+---
+
+### 2. 늘어나는 무기 애니메이션에서 히트박스가 따라가지 못하는 문제
+
+오공 무기 특성상 늘어나는 애니메이션이 있었는데,  
+콜리전 박스를 메시에 그냥 붙여두면 무기가 늘어나도 박스 크기는 그대로라 히트가 되지 않았습니다.
+
+무기 양 끝단에 소켓을 하나씩 배치하고, 매 프레임 두 소켓 사이의 거리와 방향을 읽어  
+캡슐의 크기와 회전을 갱신하도록 구현했습니다.
+
+```cpp
+// 두 소켓 사이 벡터로 캡슐 방향과 크기를 자동 계산
+const FQuat  CapsuleRotation  = FRotationMatrix::MakeFromZ(WeaponVector.GetSafeNormal()).ToQuat();
+const float CapsuleHalfHeight = WeaponVector.Size() * 0.5f;
+
+Capsule->SetWorldLocation(WeaponCenter);
+Capsule->SetWorldRotation(CapsuleRotation);
+Capsule->SetCapsuleHalfHeight(CapsuleHalfHeight);
+```
+
+---
+
+### 3. 공격 어빌리티마다 데미지 계산 로직이 중복되는 문제
+
+콤보 단계, 차지 레벨, 다단히트 횟수 등 데미지에 영향을 주는 요소는 여러 개지만  
+최종 결과는 "얼마나 깎이느냐" 하나입니다.
+
+어빌리티마다 계산을 따로 두면 밸런스 수정 시 파일을 여러 개 고쳐야 하는 문제가 있어,  
+어빌리티는 SetByCaller 태그로 재료 값만 넘기고 계산은 `GEExecCalc_Damage` 한 곳에서만 처리하도록 구조를 잡았습니다.
+
+```
+어빌리티  →  BaseDamage / ComboCount / ChargeCount / HitCount 를 태그에 담아 전달
+ExecCalc  →  공격력 × 데미지 × 콤보배율 × 차지배율 ÷ 히트수 ÷ 방어력  계산
+AttributeSet  →  체력에 적용, 사망 판정
+```
