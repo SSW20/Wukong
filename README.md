@@ -285,7 +285,60 @@ if (CachedPawnUIInterface == nullptr)
 
 ---
 
-### 5. AI 공격 선택 (BTTask)
+### 5. Data Driven — 에디터에서 캐릭터 구성
+
+캐릭터가 어떤 어빌리티를 갖는지, 에너미가 어떤 공격을 쓰는지를  
+**코드가 아닌 데이터 에셋으로 분리**해 에디터에서만 수정할 수 있도록 구성했습니다.
+
+#### 어빌리티 초기 등록 — StartUpAbilities
+
+캐릭터가 컨트롤러에 빙의(PossessedBy / BeginPlay)되는 시점에  
+`TSoftObjectPtr`로 선언된 에셋을 `LoadSynchronous()`로 불러와 ASC에 등록합니다.
+
+```
+캐릭터 스폰 → 컨트롤러 빙의
+  → LoadSynchronous() 로 에셋 로드
+  → GrantAbilityToActorASC()
+      → 어빌리티 목록 순회하며 ASC에 GiveAbility()
+      → 초기 GameplayEffect 적용 (체력 / 마나 초기값 세팅)
+```
+
+플레이어는 어빌리티를 등록할 때 **입력 태그도 함께 붙여서** 어떤 키에 반응할지도 에셋에서 결정합니다.
+
+```cpp
+// WK_PlayerStartUpAbilities.cpp
+FGameplayAbilitySpec AbilitySpec(PlayerAbility.Ability);
+AbilitySpec.DynamicAbilityTags.AddTag(PlayerAbility.InputTag); // 입력 태그 바인딩
+WKAbilitySystemComponent->GiveAbility(AbilitySpec);
+```
+
+에너미는 `WK_EnemyStartUpAbilities` 에셋만 교체하면 완전히 다른 어빌리티 셋을 가진 에너미를 만들 수 있습니다.
+
+#### 공격 패턴 — EnemyAttackPool
+
+에너미가 어떤 공격을 언제 쓸 수 있는지를 `UWK_EnemyAttackPool` 데이터 에셋으로 관리합니다.
+
+```cpp
+struct FEnemyAttackData {
+    FGameplayTag AbilityTag;  // 어떤 공격인지
+    FGameplayTag CoolDownTag; // 쿨다운 태그 (이 태그 있으면 사용 불가)
+    float MinDistance;        // 최소 사용 거리
+    float MaxDistance;        // 최대 사용 거리
+}
+```
+
+BTTask에서 매 틱마다 이 풀을 읽어 거리·쿨다운 조건을 필터링하고 공격을 선택합니다.  
+에너미 종류마다 에셋만 따로 만들면 코드 수정 없이 고유한 공격 패턴을 구성할 수 있습니다.
+
+| 에셋 | 역할 |
+|------|------|
+| `WK_PlayerStartUpAbilities` | 플레이어 어빌리티 목록 + 입력 태그 |
+| `WK_EnemyStartUpAbilities` | 에너미 어빌리티 목록 |
+| `WK_EnemyAttackPool` | 에너미별 공격 조건 (거리 / 쿨다운) |
+
+---
+
+### 6. AI 공격 선택 (BTTask)
 
 비헤이비어 트리 태스크에서 **플레이어의 공간적 위치를 분석해** 적절한 공격을 선택합니다.
 
